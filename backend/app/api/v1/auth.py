@@ -22,7 +22,8 @@ async def register(user_in: UserCreate, db: AsyncSession = Depends(get_db)):
     # Create new user
     db_user = User(
         email=user_in.email,
-        hashed_password=get_password_hash(user_in.password)
+        hashed_password=get_password_hash(user_in.password),
+        role=user_in.role
     )
     db.add(db_user)
     await db.commit()
@@ -42,4 +43,9 @@ async def login(user_in: UserLogin, db: AsyncSession = Depends(get_db)):
         )
     
     access_token = create_access_token(subject=user.email)
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {
+        "access_token": access_token, 
+        "token_type": "bearer",
+        "email": user.email,
+        "role": user.role
+    }

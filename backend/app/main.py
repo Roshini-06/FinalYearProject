@@ -1,28 +1,35 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.v1 import complaint, auth, health
-from app.core.config import settings
+import logging
 
+from app.routes import complaint_routes
+from app.api.v1 import health
+from app.core.config import settings
 from app.db.database import engine, Base
-from app.models import user, complaint # Ensure models are registered
+from app.middlewares.logging_middleware import LoggingMiddleware
+
+# Configure Logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: Create database tables
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    logger.info("Database tables created/verified")
     yield
-    # Shutdown: Cleanup logic
 
 app = FastAPI(
-    title="AI Complaint Classification & Prioritization System",
+    title=settings.PROJECT_NAME,
     description="Full-stack AI solution for automated public service complaint management",
     version="2.0.0",
     lifespan=lifespan
 )
 
-# Set CORS middleware
+# Middlewares
+app.add_middleware(LoggingMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
@@ -33,9 +40,13 @@ app.add_middleware(
 
 # Include Routers
 app.include_router(health.router, prefix="/api/v1", tags=["Health"])
-app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
-app.include_router(complaint.router, prefix="/api/v1/complaints", tags=["Complaints"])
+
+app.include_router(complaint_routes.router, prefix="/api/v1/complaints", tags=["Complaints"])
 
 @app.get("/")
 async def root():
-    return {"message": "AI Complaint Classification API is running"}
+    return {
+        "message": f"Welcome to {settings.PROJECT_NAME} API",
+        "status": "online",
+        "version": "2.0.0"
+    }

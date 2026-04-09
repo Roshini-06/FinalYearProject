@@ -18,11 +18,12 @@ class Complaint(Base):
     __tablename__ = "complaints"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     subject = Column(String, nullable=False)
     description = Column(String, nullable=False)
     category = Column(String)  # Water, Electricity, etc.
     priority = Column(String)  # High, Medium, Low
+    location = Column(String, nullable=False)
     status = Column(String, default=ComplaintStatus.PENDING)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

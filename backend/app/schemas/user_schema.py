@@ -6,6 +6,7 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str
+    role: Optional[str] = "user"
 
 class UserLogin(UserBase):
     password: str
@@ -20,6 +21,8 @@ class UserResponse(UserBase):
 class Token(BaseModel):
     access_token: str
     token_type: str
+    email: str
+    role: str
 
 class TokenData(BaseModel):
     email: Optional[str] = None

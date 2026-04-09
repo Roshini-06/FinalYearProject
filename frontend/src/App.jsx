@@ -1,19 +1,23 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { useUser } from '@clerk/clerk-react';
 import Navbar from './components/Navbar';
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import UserDashboard from './pages/UserDashboard';
+import MyComplaints from './pages/MyComplaints';
 import AdminDashboard from './pages/AdminDashboard';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { AuthProvider } from './context/AuthContext';
+import { Toaster } from 'react-hot-toast';
 
+// ProtectedRoute now uses Clerk's useUser
 const ProtectedRoute = ({ children, adminOnly = false }) => {
-  const { user, loading } = useAuth();
+  const { isSignedIn, isLoaded, user } = useUser();
   
-  if (loading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
-  if (!user) return <Navigate to="/login" />;
-  if (adminOnly && user.role !== 'admin') return <Navigate to="/" />;
+  if (!isLoaded) return <div className="min-h-screen flex items-center justify-center text-gray-500 font-bold">Loading session...</div>;
+  if (!isSignedIn) return <Navigate to="/login" />;
+  if (adminOnly && user?.publicMetadata?.role !== 'admin') return <Navigate to="/" />;
   
   return children;
 };
@@ -21,6 +25,7 @@ const ProtectedRoute = ({ children, adminOnly = false }) => {
 function App() {
   return (
     <AuthProvider>
+      <Toaster position="top-right" />
       <Router>
         <div className="min-h-screen bg-slate-50 selection:bg-primary-500 selection:text-white">
           <Navbar />
@@ -29,6 +34,14 @@ function App() {
               <Route path="/" element={<LandingPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/signup" element={<SignupPage />} />
+              <Route 
+                path="/my-complaints" 
+                element={
+                  <ProtectedRoute>
+                    <MyComplaints />
+                  </ProtectedRoute>
+                } 
+              />
               <Route 
                 path="/dashboard" 
                 element={

@@ -1,26 +1,68 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { LogIn, Mail, Lock, Loader2 } from 'lucide-react';
+import { useSignIn, useUser } from '@clerk/clerk-react';
+import { LogIn, Mail, KeyRound, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { toast } from 'react-hot-toast';
 
 export default function LoginPage() {
+  const { isLoaded, signIn, setActive } = useSignIn();
+  const { isSignedIn } = useUser();
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [code, setCode] = useState('');
+  const [pendingVerification, setPendingVerification] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const { login } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
+  React.useEffect(() => {
+    if (isSignedIn) {
+      navigate('/dashboard');
+    }
+  }, [isSignedIn, navigate]);
+
+  const handleSendOTP = async (e) => {
     e.preventDefault();
+    if (!isLoaded) return;
     setLoading(true);
     setError('');
     try {
-      await login(email, password);
-      navigate('/dashboard');
+      // Start the sign-in process with Email Code
+      await signIn.create({
+        identifier: email,
+        strategy: 'email_code',
+      });
+      setPendingVerification(true);
+      toast.success('OTP sent to your email!');
     } catch (err) {
-      setError(err.response?.data?.detail || 'Invalid email or password');
+      setError(err.errors?.[0]?.message || 'Failed to send OTP');
+      toast.error('Failed to send OTP');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOTP = async (e) => {
+    e.preventDefault();
+    if (!isLoaded) return;
+    setLoading(true);
+    setError('');
+    try {
+      const completeSignIn = await signIn.attemptFirstFactor({
+        strategy: 'email_code',
+        code,
+      });
+
+      if (completeSignIn.status === 'complete') {
+        await setActive({ session: completeSignIn.createdSessionId });
+        navigate('/dashboard');
+        toast.success("Login successful!");
+      } else {
+         console.log(JSON.stringify(completeSignIn, null, 2));
+      }
+    } catch (err) {
+      setError(err.errors?.[0]?.message || 'Invalid or expired OTP');
+      toast.error('Invalid OTP');
     } finally {
       setLoading(false);
     }
@@ -33,62 +75,92 @@ export default function LoginPage() {
         animate={{ opacity: 1, y: 0 }}
         className="max-w-md w-full p-10 bg-white/70 backdrop-blur-xl border border-white/50 rounded-[3rem] shadow-2xl space-y-8"
       >
-        <div className="text-center space-y-2">
-           <div className="inline-flex p-4 bg-primary-600 rounded-2xl text-white shadow-lg shadow-primary-200 mb-4">
+        <div className="text-center space-y-4">
+           <div className="inline-flex p-4 bg-primary-600 rounded-2xl text-white shadow-lg shadow-primary-200">
               <LogIn className="w-8 h-8" />
            </div>
-           <h1 className="text-3xl font-extrabold text-gray-900">Welcome Back</h1>
-           <p className="text-gray-500 font-medium">Log in to track your complaints</p>
+           <h1 className="text-3xl font-extrabold text-gray-900">
+              Welcome Back
+           </h1>
+           <p className="text-gray-500 font-medium lowercase">
+              Log in securely without a password
+           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-           <div className="space-y-2">
-              <label className="text-sm font-bold text-gray-700 uppercase tracking-widest px-1">Email</label>
-              <div className="relative">
-                 <Mail className="absolute left-4 top-4 w-5 h-5 text-gray-400" />
-                 <input
-                  type="email"
-                  placeholder="name@example.com"
-                  className="w-full pl-12 p-4 rounded-xl border border-gray-100 bg-gray-50/50 focus:ring-4 focus:ring-primary-100 outline-none transition-all font-medium"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                 />
-              </div>
-           </div>
-
-           <div className="space-y-2">
-              <label className="text-sm font-bold text-gray-700 uppercase tracking-widest px-1">Password</label>
-              <div className="relative">
-                 <Lock className="absolute left-4 top-4 w-5 h-5 text-gray-400" />
-                 <input
-                  type="password"
-                  placeholder="••••••••"
-                  className="w-full pl-12 p-4 rounded-xl border border-gray-100 bg-gray-50/50 focus:ring-4 focus:ring-primary-100 outline-none transition-all font-medium"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                 />
-              </div>
-           </div>
-
-           {error && (
-             <div className="p-4 bg-red-50 text-red-600 rounded-xl text-sm font-bold border border-red-100">
-                {error}
+        {!pendingVerification ? (
+          <form onSubmit={handleSendOTP} className="space-y-6">
+             <div className="space-y-2">
+                <label className="text-sm font-bold text-gray-700 uppercase tracking-widest px-1">Email Address</label>
+                <div className="relative">
+                   <Mail className="absolute left-4 top-4 w-5 h-5 text-gray-400" />
+                   <input
+                    type="email"
+                    placeholder="name@example.com"
+                    className="w-full pl-12 p-4 rounded-xl border border-gray-100 bg-gray-50/50 focus:ring-4 focus:ring-primary-100 outline-none transition-all font-medium"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                   />
+                </div>
              </div>
-           )}
 
-           <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-5 bg-primary-600 text-white rounded-2xl text-xl font-bold hover:bg-primary-700 transition-all shadow-xl shadow-primary-200 disabled:opacity-50 disabled:cursor-not-allowed"
-           >
-              {loading ? <Loader2 className="w-6 h-6 animate-spin mx-auto" /> : 'Log In'}
-           </button>
-        </form>
+             {error && (
+               <div className="p-4 bg-red-50 text-red-600 rounded-xl text-sm font-bold border border-red-100">
+                  {error}
+               </div>
+             )}
+
+             <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-5 bg-primary-600 text-white rounded-2xl text-xl font-bold hover:bg-primary-700 transition-all shadow-xl shadow-primary-200 disabled:opacity-50 disabled:cursor-not-allowed"
+             >
+                {loading ? <Loader2 className="w-6 h-6 animate-spin mx-auto" /> : 'Send OTP'}
+             </button>
+          </form>
+        ) : (
+          <form onSubmit={handleVerifyOTP} className="space-y-6">
+             <div className="space-y-2">
+                <label className="text-sm font-bold text-gray-700 uppercase tracking-widest px-1">Verification Code</label>
+                <div className="relative">
+                   <KeyRound className="absolute left-4 top-4 w-5 h-5 text-gray-400" />
+                   <input
+                    type="text"
+                    placeholder="123456"
+                    className="w-full pl-12 p-4 rounded-xl border border-gray-100 bg-gray-50/50 focus:ring-4 focus:ring-primary-100 outline-none transition-all font-medium text-center tracking-widest text-lg"
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
+                    required
+                   />
+                </div>
+                <p className="text-xs text-gray-400 text-center pt-2">Check your email for the OTP we sent.</p>
+             </div>
+
+             {error && (
+               <div className="p-4 bg-red-50 text-red-600 rounded-xl text-sm font-bold border border-red-100">
+                  {error}
+               </div>
+             )}
+
+             <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-5 bg-primary-600 text-white rounded-2xl text-xl font-bold hover:bg-primary-700 transition-all shadow-xl shadow-primary-200 disabled:opacity-50 disabled:cursor-not-allowed"
+             >
+                {loading ? <Loader2 className="w-6 h-6 animate-spin mx-auto" /> : 'Verify Code & Login'}
+             </button>
+             <button
+                type="button"
+                onClick={() => {setPendingVerification(false); setError(''); setCode('');}}
+                className="w-full text-center text-sm font-bold text-gray-400 hover:text-gray-600"
+             >
+                Back to Email
+             </button>
+          </form>
+        )}
 
         <p className="text-center text-gray-500 font-medium">
-           Don't have an account? <Link to="/signup" className="text-primary-600 font-bold hover:underline">Sign Up</Link>
+           Don't have an account? <Link to="/signup" className="text-primary-600 font-bold hover:underline">Sign Up First</Link>
         </p>
       </motion.div>
     </div>

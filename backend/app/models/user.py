@@ -15,4 +15,4 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     role = Column(String, default=UserRole.USER)
 
-    complaints = relationship("Complaint", back_populates="user", uselist=False)
+    complaints = relationship("Complaint", back_populates="user")

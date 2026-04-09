@@ -1,36 +1,49 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useEffect } from 'react';
+import { useUser, useAuth as useClerkAuth, useClerk } from '@clerk/clerk-react';
 import axios from 'axios';
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { user: clerkUser, isLoaded: isUserLoaded, isSignedIn } = useUser();
+  const { isLoaded: isAuthLoaded, getToken } = useClerkAuth();
+  const { signOut } = useClerk();
 
+  // Map Clerk user to our app's user format
+  const user = isSignedIn && clerkUser ? {
+    email: clerkUser.primaryEmailAddress?.emailAddress,
+    role: clerkUser.publicMetadata?.role || 'user',
+    id: clerkUser.id
+  } : null;
+
+  const loading = !isUserLoaded || !isAuthLoaded;
+
+  // Intercept all axios requests to automatically attach the Clerk Token
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      // In a real app, you'd fetch the user profile here
-      // For now, we decode basic info or trust the token existence
-      setUser({ email: 'user@example.com', role: 'user' }); 
-    }
-    setLoading(false);
-  }, []);
+    const requestInterceptor = axios.interceptors.request.use(async (config) => {
+      if (isSignedIn) {
+        const token = await getToken();
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+          if (clerkUser?.primaryEmailAddress?.emailAddress) {
+             config.headers['X-User-Email'] = clerkUser.primaryEmailAddress.emailAddress;
+          }
+        }
+      }
+      return config;
+    });
 
-  const login = async (email, password) => {
-    const response = await axios.post('http://localhost:8000/api/v1/auth/login', { email, password });
-    const { access_token } = response.data;
-    localStorage.setItem('token', access_token);
-    setUser({ email, role: 'user' }); // role logic should come from backend
-  };
+    return () => {
+      axios.interceptors.request.eject(requestInterceptor);
+    };
+  }, [isSignedIn, getToken, clerkUser]);
 
-  const logout = () => {
-    localStorage.removeItem('token');
-    setUser(null);
+  const logout = async () => {
+    await signOut();
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );

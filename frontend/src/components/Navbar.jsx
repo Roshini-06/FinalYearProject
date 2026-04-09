@@ -1,16 +1,21 @@
 import React from 'react';
-import { Power, Droplets, LayoutDashboard, PlusCircle, LogOut } from 'lucide-react';
+import { Power, LayoutDashboard, PlusCircle, LogOut, FileText } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useUser, useClerk } from '@clerk/clerk-react';
 
 export default function Navbar() {
-  const { user, logout } = useAuth();
+  const { user, isSignedIn } = useUser();
+  const { signOut } = useClerk();
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await signOut();
     navigate('/');
   };
+
+  const email = user?.primaryEmailAddress?.emailAddress;
+  // Read role from Clerk publicMetadata (set via Clerk Dashboard or backend)
+  const role = user?.publicMetadata?.role;
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100">
@@ -26,10 +31,15 @@ export default function Navbar() {
           </Link>
           
           <div className="hidden md:flex space-x-8">
-            <Link to={user ? "/dashboard" : "/login"} className="text-gray-600 hover:text-primary-600 font-medium transition-colors flex items-center gap-2">
+            <Link to={isSignedIn ? "/dashboard" : "/login"} className="text-gray-600 hover:text-primary-600 font-medium transition-colors flex items-center gap-2">
               <PlusCircle className="w-4 h-4" /> Submit Report
             </Link>
-            {user?.role === 'admin' && (
+            {isSignedIn && (
+              <Link to="/my-complaints" className="text-gray-600 hover:text-primary-600 font-medium transition-colors flex items-center gap-2">
+                <FileText className="w-4 h-4" /> My Reports
+              </Link>
+            )}
+            {isSignedIn && role === 'admin' && (
               <Link to="/admin" className="text-gray-600 hover:text-primary-600 font-medium transition-colors flex items-center gap-2">
                 <LayoutDashboard className="w-4 h-4" /> Admin Panel
               </Link>
@@ -37,9 +47,11 @@ export default function Navbar() {
           </div>
 
           <div className="flex items-center gap-4">
-            {user ? (
+            {isSignedIn ? (
                <div className="flex items-center gap-6">
-                  <span className="text-sm font-bold text-gray-400 hidden lg:block">Logged in as <span className="text-primary-600">{user.email}</span></span>
+                  <span className="text-sm font-bold text-gray-400 hidden lg:block">
+                    Logged in as <span className="text-primary-600">{email}</span>
+                  </span>
                   <button 
                     onClick={handleLogout}
                     className="flex items-center gap-2 text-gray-500 hover:text-red-600 font-bold text-sm transition-colors"

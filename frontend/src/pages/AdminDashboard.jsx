@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { LayoutDashboard, Filter, RefreshCw, Users, AlertCircle, TrendingUp } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { toast } from 'react-hot-toast';
 
 export default function AdminDashboard() {
   const [complaints, setComplaints] = useState([]);
@@ -10,13 +11,11 @@ export default function AdminDashboard() {
 
   const fetchComplaints = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:8000/api/v1/complaints/all', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await axios.get('/api/v1/complaints/all');
       setComplaints(response.data);
     } catch (err) {
       console.error("Failed to fetch all complaints");
+      toast.error("Failed to fetch complaints");
     } finally {
       setLoading(false);
     }
@@ -30,6 +29,19 @@ export default function AdminDashboard() {
     (filter.category === '' || c.category === filter.category) &&
     (filter.priority === '' || c.priority === filter.priority)
   );
+
+  const handleUpdateStatus = async (id, currentStatus) => {
+    try {
+      const statuses = ['Pending', 'In Progress', 'Resolved'];
+      const nextStatus = statuses[(statuses.indexOf(currentStatus) + 1) % statuses.length];
+      await axios.patch(`/api/v1/complaints/${id}/status`, { status: nextStatus });
+      toast.success(`Status updated to ${nextStatus}`);
+      fetchComplaints();
+    } catch (err) {
+      console.error("Failed to update status");
+      toast.error("Failed to update status");
+    }
+  };
 
   return (
     <div className="min-h-screen pt-32 pb-20 px-8 bg-slate-50">
@@ -132,7 +144,12 @@ export default function AdminDashboard() {
                              {complaint.status}
                           </td>
                           <td className="px-8 py-6 text-right">
-                             <button className="text-primary-600 font-extrabold text-xs hover:underline uppercase tracking-widest">Manage</button>
+                             <button 
+                               onClick={() => handleUpdateStatus(complaint.id, complaint.status)}
+                               className="text-primary-600 font-extrabold text-xs hover:underline uppercase tracking-widest"
+                             >
+                               Update Status
+                             </button>
                           </td>
                        </tr>
                     ))}
