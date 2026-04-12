@@ -2,7 +2,7 @@ from pydantic_settings import BaseSettings
 from typing import List, Optional
 
 class Settings(BaseSettings):
-    PROJECT_NAME: str = "AI Complaint Classification"
+    PROJECT_NAME: str = "SmartComplain.ai"
     API_V1_STR: str = "/api/v1"
     
     # DATABASE (PostgreSQL)
@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     SMTP_USER: Optional[str] = None
     SMTP_PASSWORD: Optional[str] = None
     EMAILS_FROM_EMAIL: Optional[str] = None
-    EMAILS_FROM_NAME: Optional[str] = "FlowPower AI Support"
+    EMAILS_FROM_NAME: Optional[str] = "SmartComplain.ai Support"
 
     # CORS
     CORS_ORIGINS: List[str] = ["http://localhost:5173", "http://localhost:3000", "http://localhost:3001"]

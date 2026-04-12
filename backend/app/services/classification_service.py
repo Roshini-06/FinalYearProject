@@ -45,7 +45,15 @@ class ClassificationService:
         # 2. AI Model for nuanced sentences
         if self.model and self.vectorizer:
             X = self.vectorizer.transform([cleaned_text])
-            prediction = self.model.predict(X)[0]
+            probas = self.model.predict_proba(X)[0]
+            max_prob = max(probas)
+            
+            # If the model is not very confident (< 65%), it means the text 
+            # is likely unrelated to both Water or Electricity
+            if max_prob < 0.65:
+                return "General"
+                
+            prediction = self.model.classes_[probas.argmax()]
             return prediction
         
         # 3. Final Fallback

@@ -21,13 +21,20 @@ export const AuthProvider = ({ children }) => {
   // Intercept all axios requests to automatically attach the Clerk Token
   useEffect(() => {
     const requestInterceptor = axios.interceptors.request.use(async (config) => {
+      console.log("Axios Interceptor: Starting request to", config.url);
       if (isSignedIn) {
-        const token = await getToken();
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
-          if (clerkUser?.primaryEmailAddress?.emailAddress) {
-             config.headers['X-User-Email'] = clerkUser.primaryEmailAddress.emailAddress;
+        try {
+          console.log("Axios Interceptor: Fetching Clerk token...");
+          const token = await getToken();
+          console.log("Axios Interceptor: Token received:", token ? "YES" : "NO");
+          if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+            if (clerkUser?.primaryEmailAddress?.emailAddress) {
+               config.headers['X-User-Email'] = clerkUser.primaryEmailAddress.emailAddress;
+            }
           }
+        } catch (tokenErr) {
+          console.error("Axios Interceptor: Error getting token", tokenErr);
         }
       }
       return config;

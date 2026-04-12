@@ -63,7 +63,7 @@ function App() {
           
           <footer className="py-20 border-t border-gray-100 bg-white">
              <div className="max-w-7xl mx-auto px-8 text-center text-gray-400 font-medium text-sm">
-               &copy; 2026 FlowPower AI. Shaping the future of public services.
+               &copy; 2026 SmartComplain.ai. Shaping the future of public services.
              </div>
           </footer>
         </div>

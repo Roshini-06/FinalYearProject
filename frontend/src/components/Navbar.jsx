@@ -26,7 +26,7 @@ export default function Navbar() {
               <Power className="w-5 h-5" />
             </div>
             <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary-600 to-blue-500">
-              FlowPower AI
+              SmartComplain.ai
             </span>
           </Link>
           

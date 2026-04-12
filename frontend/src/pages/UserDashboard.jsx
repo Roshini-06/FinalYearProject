@@ -12,15 +12,22 @@ export default function UserDashboard() {
   const { user } = useAuth();
 
   const fetchComplaint = async () => {
+    console.log("UserDashboard: Attempting to fetch latest complaint...");
+    const timeout = setTimeout(() => {
+       console.warn("UserDashboard: Fetch timed out after 10s");
+       setLoading(false);
+    }, 10000);
+
     try {
       const response = await axios.get('/api/v1/complaints/my');
+      console.log("UserDashboard: Fetch success, count:", response.data.length);
       if (response.data.length > 0) {
-        // The backend sorts by descending order, so [0] is the latest
         setComplaint(response.data[0]);
       }
     } catch (err) {
-      console.log("No complaint found or error fetching");
+      console.error("UserDashboard: Fetch failed", err.message);
     } finally {
+      clearTimeout(timeout);
       setLoading(false);
     }
   };

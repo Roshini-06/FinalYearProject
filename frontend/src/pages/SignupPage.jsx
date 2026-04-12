@@ -112,7 +112,7 @@ export default function SignupPage() {
            <h1 className="text-3xl font-extrabold text-gray-900">
               {selectedRole === 'admin' ? 'Admin Registration' : 'Create Account'}
            </h1>
-           <p className="text-gray-500 font-medium">Join FlowPower AI securely via OTP</p>
+           <p className="text-gray-500 font-medium">Join SmartComplain.ai securely via OTP</p>
         </div>
 
         {!pendingVerification ? (
