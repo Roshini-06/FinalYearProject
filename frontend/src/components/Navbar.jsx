@@ -28,7 +28,7 @@ export default function Navbar() {
     }
   };
 
-  const isAuthPage = ['/login', '/signup', '/admin/login'].includes(location.pathname);
+  const isAuthPage = ['/', '/login', '/signup', '/admin/login'].includes(location.pathname);
   const isAdminPage = location.pathname.startsWith('/admin');
 
   return (
