@@ -13,7 +13,6 @@ export default function SignupPage() {
   const [pendingVerification, setPendingVerification] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [selectedRole, setSelectedRole] = useState('user');
   const navigate = useNavigate();
 
   React.useEffect(() => {
@@ -88,29 +87,12 @@ export default function SignupPage() {
         className="max-w-md w-full p-10 bg-white/70 backdrop-blur-xl border border-white/50 rounded-[3rem] shadow-2xl space-y-8"
       >
         <div className="text-center space-y-4">
-           {/* Role Selection Toggle */}
-           <div className="flex p-1 bg-gray-100/50 backdrop-blur-sm rounded-2xl w-full max-w-[280px] mx-auto mb-6 border border-gray-200/50">
-              <button 
-                type="button"
-                onClick={() => setSelectedRole('user')}
-                className={`flex-1 py-2.5 text-xs font-black rounded-xl transition-all duration-300 ${selectedRole === 'user' ? 'bg-primary-600 text-white shadow-lg shadow-primary-200' : 'text-gray-400 hover:text-gray-600'}`}
-              >
-                USER
-              </button>
-              <button 
-                type="button"
-                onClick={() => setSelectedRole('admin')}
-                className={`flex-1 py-2.5 text-xs font-black rounded-xl transition-all duration-300 ${selectedRole === 'admin' ? 'bg-primary-600 text-white shadow-lg shadow-primary-200' : 'text-gray-400 hover:text-gray-600'}`}
-              >
-                ADMIN
-              </button>
-           </div>
 
            <div className="inline-flex p-4 bg-primary-600 rounded-2xl text-white shadow-lg shadow-primary-200">
               <UserPlus className="w-8 h-8" />
            </div>
            <h1 className="text-3xl font-extrabold text-gray-900">
-              {selectedRole === 'admin' ? 'Admin Registration' : 'Create Account'}
+              Create Account
            </h1>
            <p className="text-gray-500 font-medium">Join SmartComplain.ai securely via OTP</p>
         </div>

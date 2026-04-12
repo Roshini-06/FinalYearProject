@@ -8,17 +8,23 @@ import SignupPage from './pages/SignupPage';
 import UserDashboard from './pages/UserDashboard';
 import MyComplaints from './pages/MyComplaints';
 import AdminDashboard from './pages/AdminDashboard';
+import AdminLogin from './pages/AdminLogin';
 import { AuthProvider } from './context/AuthContext';
 import { Toaster } from 'react-hot-toast';
 
-// ProtectedRoute now uses Clerk's useUser
+// User Protection (Clerk based)
 const ProtectedRoute = ({ children, adminOnly = false }) => {
   const { isSignedIn, isLoaded, user } = useUser();
-  
   if (!isLoaded) return <div className="min-h-screen flex items-center justify-center text-gray-500 font-bold">Loading session...</div>;
   if (!isSignedIn) return <Navigate to="/login" />;
   if (adminOnly && user?.publicMetadata?.role !== 'admin') return <Navigate to="/" />;
-  
+  return children;
+};
+
+// Admin Protection (LocalStorage based)
+const AdminProtectedRoute = ({ children }) => {
+  const token = localStorage.getItem('adminToken');
+  if (!token) return <Navigate to="/admin/login" />;
   return children;
 };
 
@@ -34,6 +40,10 @@ function App() {
               <Route path="/" element={<LandingPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/signup" element={<SignupPage />} />
+              
+              {/* Manual Admin Login */}
+              <Route path="/admin/login" element={<AdminLogin />} />
+
               <Route 
                 path="/my-complaints" 
                 element={
@@ -50,14 +60,20 @@ function App() {
                   </ProtectedRoute>
                 } 
               />
+              
+              {/* Independent Admin Dashboard */}
               <Route 
-                path="/admin" 
+                path="/admin/dashboard" 
                 element={
-                  <ProtectedRoute adminOnly>
+                  <AdminProtectedRoute>
                     <AdminDashboard />
-                  </ProtectedRoute>
+                  </AdminProtectedRoute>
                 } 
               />
+
+              {/* Keep old /admin for Clerk users if they were using it, 
+                  but user said 'Admin dashboard after login' and 'Go to /admin/dashboard' */}
+              <Route path="/admin" element={<Navigate to="/admin/dashboard" />} />
             </Routes>
           </main>
           

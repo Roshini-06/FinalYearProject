@@ -7,7 +7,7 @@ from app.schemas.complaint_schema import (
     ComplaintCheckRequest, DuplicateCheckResponse
 )
 from app.controllers.complaint_controller import ComplaintController
-from app.api.deps import get_current_user, get_current_active_admin
+from app.api.deps import get_current_user, get_current_admin
 from app.models.user import User
 
 router = APIRouter()
@@ -41,7 +41,7 @@ async def get_my_complaints(
 @router.get("/all", response_model=List[ComplaintResponse])
 async def get_all_complaints(
     db: AsyncSession = Depends(get_db),
-    admin_user: User = Depends(get_current_active_admin)
+    admin_user: User = Depends(get_current_admin)
 ):
     return await ComplaintController.get_all_complaints(db)
 
@@ -50,6 +50,6 @@ async def update_complaint_status(
     complaint_id: int,
     status_update: ComplaintStatusUpdate,
     db: AsyncSession = Depends(get_db),
-    admin_user: User = Depends(get_current_active_admin)
+    admin_user: User = Depends(get_current_admin)
 ):
     return await ComplaintController.update_status(complaint_id, status_update, db)

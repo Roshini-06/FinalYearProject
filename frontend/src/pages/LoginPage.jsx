@@ -159,9 +159,14 @@ export default function LoginPage() {
           </form>
         )}
 
-        <p className="text-center text-gray-500 font-medium">
-           Don't have an account? <Link to="/signup" className="text-primary-600 font-bold hover:underline">Sign Up First</Link>
-        </p>
+        <div className="space-y-4 pt-4 border-t border-gray-100">
+           <p className="text-center text-gray-500 font-medium">
+              Don't have an account? <Link to="/signup" className="text-primary-600 font-bold hover:underline">Sign Up First</Link>
+           </p>
+           <p className="text-center text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none">
+              Municipal Staff? <Link to="/admin/login" className="text-gray-900 hover:text-primary-600 transition-colors">Login as Administrator</Link>
+           </p>
+        </div>
       </motion.div>
     </div>
   );

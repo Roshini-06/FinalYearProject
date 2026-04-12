@@ -2,12 +2,14 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import logging
+from sqlalchemy import select
 
 from app.routes import complaint_routes
-from app.api.v1 import health
+from app.api.v1 import health, admin
 from app.core.config import settings
-from app.db.database import engine, Base
-from app.middlewares.logging_middleware import LoggingMiddleware
+from app.db.database import engine, Base, AsyncSessionLocal
+from app.models.user import User, UserRole
+from app.core.security import get_password_hash
 
 # Configure Logging
 logging.basicConfig(level=logging.INFO)
@@ -19,6 +21,25 @@ async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     logger.info("Database tables created/verified")
+    
+    # Seed Admin User
+    async with AsyncSessionLocal() as db:
+        admin_email = "admin@gmail.com"
+        result = await db.execute(select(User).where(User.email == admin_email))
+        admin_user = result.scalar_one_or_none()
+        
+        if not admin_user:
+            logger.info("Seeding default admin user...")
+            new_admin = User(
+                email=admin_email,
+                hashed_password=get_password_hash("Admin@123"),
+                role=UserRole.ADMIN
+            )
+            db.add(new_admin)
+            await db.commit()
+            logger.info("Admin user created successfully")
+        else:
+            logger.info("Admin user already exists")
     yield
 
 app = FastAPI(
@@ -29,7 +50,6 @@ app = FastAPI(
 )
 
 # Middlewares
-# app.add_middleware(LoggingMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
@@ -40,7 +60,7 @@ app.add_middleware(
 
 # Include Routers
 app.include_router(health.router, prefix="/api/v1", tags=["Health"])
-
+app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
 app.include_router(complaint_routes.router, prefix="/api/v1/complaints", tags=["Complaints"])
 
 @app.get("/")
