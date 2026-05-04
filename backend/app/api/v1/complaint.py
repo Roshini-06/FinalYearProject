@@ -1,7 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import List
+import io
+import pandas as pd
 from app.db.database import get_db
 from app.models.complaint import Complaint
 from app.models.user import User
@@ -96,3 +98,65 @@ async def update_complaint_status(
     await db.commit()
     await db.refresh(db_complaint)
     return db_complaint
+
+@router.post("/upload-csv")
+async def upload_csv_complaints(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user)
+):
+    if not file.filename.endswith('.csv'):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Invalid file format. Please upload a .csv file."
+        )
+
+    try:
+        contents = await file.read()
+        df = pd.read_csv(io.BytesIO(contents))
+        
+        if 'complaint_text' not in df.columns:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="CSV must contain a 'complaint_text' column."
+            )
+            
+        df = df.dropna(subset=['complaint_text'])
+        df = df[df['complaint_text'].astype(str).str.strip() != '']
+        
+        if df.empty:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No valid complaint data found in the CSV."
+            )
+
+        predictions = []
+        for text in df['complaint_text']:
+            text_str = str(text)
+            # Use real AI services from your backend
+            category = await classification_service.classify_complaint(text_str)
+            priority = await prioritization_service.prioritize_complaint(text_str)
+            
+            predictions.append({
+                "complaint_text": text_str,
+                "predicted_category": category,
+                "priority_level": priority,
+                "confidence_score": 0.95 # Mock score for now
+            })
+        
+        preview_df = df.head(5).fillna("")
+        preview = preview_df.to_dict(orient="records")
+        
+        return {
+            "message": "CSV processed successfully",
+            "total_processed": len(predictions),
+            "preview": preview,
+            "results": predictions
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error processing CSV: {str(e)}"
+        )

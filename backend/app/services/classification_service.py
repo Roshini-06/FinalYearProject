@@ -6,14 +6,15 @@ from app.services.preprocessing_service import preprocessing_service
 # This system ONLY handles Water and Electricity complaints
 ELECTRICITY_KEYWORDS = [
     "light", "lights", "streetlight", "lamp", "transformer", "electricity",
-    "power cut", "power outage", "voltage", "wire", "wiring", "pole", "shock",
-    "bulb", "electric", "power supply", "generator", "circuit", "fuse", "switchboard"
+    "power", "current", "voltage", "wire", "wiring", "pole", "shock",
+    "bulb", "electric", "generator", "circuit", "fuse", "switchboard",
+    "outage", "blackout", "phase"
 ]
 
 WATER_KEYWORDS = [
     "water", "pipe", "pipeline", "leak", "leakage", "drain", "drainage",
     "sewage", "sewer", "plumbing", "tap", "drinking", "motor", "flood",
-    "overflow", "blocked drain", "waterlogging", "supply", "contaminated"
+    "overflow", "supply", "contaminated", "stagnant", "borewell", "tanker"
 ]
 
 INSUFFICIENT_MESSAGE = (

@@ -1,14 +1,22 @@
 import React, { useState, useCallback } from 'react';
 import axios from 'axios';
-import { Send, FileText, MapPin, Loader2, Sparkles, AlertCircle, ShieldAlert, CheckCircle2 } from 'lucide-react';
+import { Send, FileText, MapPin, Loader2, Sparkles, AlertCircle, ShieldAlert, CheckCircle2, UploadCloud, File as FileIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 
 export default function ComplaintForm({ onSuccess }) {
+  const [activeTab, setActiveTab] = useState('manual'); // 'manual' or 'csv'
+  
+  // Manual Form State
   const [formData, setFormData] = useState({ subject: '', description: '', location: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [prediction, setPrediction] = useState(null);
   const [error, setError] = useState(null);
+  
+  // CSV Form State
+  const [csvFile, setCsvFile] = useState(null);
+  const [csvPreview, setCsvPreview] = useState(null);
+  const [csvResults, setCsvResults] = useState(null);
   
   // Duplicate state
   const [duplicateStatus, setDuplicateStatus] = useState(null); // null | 'checking' | 'blocked' | 'allowed'
@@ -44,18 +52,60 @@ export default function ComplaintForm({ onSuccess }) {
 
   // Debounced check — fires 1s after last keystroke
   React.useEffect(() => {
+    if (activeTab !== 'manual') return;
     const timer = setTimeout(() => {
       if (formData.subject || formData.description || formData.location) {
         checkDuplicate(formData);
       }
     }, 1000);
     return () => clearTimeout(timer);
-  }, [formData.subject, formData.description, formData.location]);
+  }, [formData.subject, formData.description, formData.location, activeTab, checkDuplicate]);
 
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     setPrediction(null);
     setError(null);
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file && file.name.endsWith('.csv')) {
+      setCsvFile(file);
+      setError(null);
+      setCsvResults(null);
+    } else {
+      setCsvFile(null);
+      toast.error('Please select a valid .csv file');
+    }
+  };
+
+  const handleCsvSubmit = async (e) => {
+    e.preventDefault();
+    if (!csvFile) return toast.error('Please select a file first.');
+    
+    setIsSubmitting(true);
+    setError(null);
+    setCsvResults(null);
+    setCsvPreview(null);
+    
+    const formData = new FormData();
+    formData.append('file', csvFile);
+
+    try {
+      // Assuming your backend URL for CSV upload is /api/v1/complaints/upload-csv
+      const response = await axios.post('/api/v1/complaints/upload-csv', formData);
+      
+      setCsvResults(response.data.results);
+      setCsvPreview(response.data.preview);
+      toast.success(`✅ Successfully processed ${response.data.total_processed} complaints!`);
+      if (onSuccess) onSuccess();
+    } catch (err) {
+      const errMsg = err.response?.data?.detail || "Unable to upload CSV. Please try again.";
+      setError(errMsg);
+      toast.error(errMsg);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -100,142 +150,224 @@ export default function ComplaintForm({ onSuccess }) {
       <div className="absolute top-0 right-0 -mr-16 -mt-16 w-32 h-32 bg-primary-300/20 blur-3xl group-hover:bg-primary-400/30 transition-all duration-700 rounded-full"></div>
       <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-32 h-32 bg-blue-300/20 blur-3xl group-hover:bg-blue-400/30 transition-all duration-700 rounded-full"></div>
 
+      <div className="relative z-10 flex justify-center mb-6">
+        <div className="flex bg-gray-100/80 p-1 rounded-2xl w-full max-w-sm border border-gray-200">
+          <button
+            type="button"
+            className={`flex-1 py-2 text-sm font-bold rounded-xl transition-all ${
+              activeTab === 'manual' ? 'bg-white text-primary-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+            }`}
+            onClick={() => { setActiveTab('manual'); setError(null); }}
+          >
+            Manual Entry
+          </button>
+          <button
+            type="button"
+            className={`flex-1 py-2 text-sm font-bold rounded-xl transition-all ${
+              activeTab === 'csv' ? 'bg-white text-primary-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+            }`}
+            onClick={() => { setActiveTab('csv'); setError(null); }}
+          >
+            Bulk Upload (CSV)
+          </button>
+        </div>
+      </div>
+
       <div className="space-y-4">
         <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight flex items-center gap-3">
-          <FileText className="w-8 h-8 text-primary-600" /> Describe Your Issue
+          {activeTab === 'manual' ? <FileText className="w-8 h-8 text-primary-600" /> : <UploadCloud className="w-8 h-8 text-primary-600" />}
+          {activeTab === 'manual' ? 'Describe Your Issue' : 'Upload Bulk Complaints'}
         </h2>
         <p className="text-gray-500 font-medium leading-relaxed">
-          Our AI will automatically categorize and prioritize your report. Duplicate reports in the same area are automatically detected.
+          {activeTab === 'manual' 
+            ? 'Our AI will automatically categorize and prioritize your report. Duplicate reports in the same area are automatically detected.' 
+            : 'Upload a CSV file with multiple complaints. Our AI will automatically categorize and prioritize all of them at once.'}
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6 relative z-10">
-        <div className="group space-y-2">
-          <label className="text-sm font-bold text-gray-700 uppercase tracking-widest px-1">Subject</label>
-          <input
-            type="text"
-            placeholder="e.g. Broken streetlight in Block-B"
-            className="w-full p-4 rounded-xl border border-gray-100 bg-gray-50/50 focus:ring-4 focus:ring-primary-100 focus:border-primary-500 transition-all outline-none text-lg font-medium shadow-sm hover:shadow-md"
-            value={formData.subject}
-            onChange={(e) => handleChange('subject', e.target.value)}
-            required
-          />
-        </div>
+      {activeTab === 'manual' ? (
+        <form onSubmit={handleSubmit} className="space-y-6 relative z-10">
+          <div className="group space-y-2">
+            <label className="text-sm font-bold text-gray-700 uppercase tracking-widest px-1">Subject</label>
+            <input
+              type="text"
+              placeholder="e.g. Broken streetlight in Block-B"
+              className="w-full p-4 rounded-xl border border-gray-100 bg-gray-50/50 focus:ring-4 focus:ring-primary-100 focus:border-primary-500 transition-all outline-none text-lg font-medium shadow-sm hover:shadow-md"
+              value={formData.subject}
+              onChange={(e) => handleChange('subject', e.target.value)}
+              required
+            />
+          </div>
 
-        <div className="group space-y-2">
-           <label className="text-sm font-bold text-gray-700 uppercase tracking-widest px-1">Location / Area</label>
-           <div className="relative">
-              <MapPin className="absolute left-4 top-4 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="e.g. Block A, Street 5"
-                className="w-full pl-12 p-4 rounded-xl border border-gray-100 bg-gray-50/50 focus:ring-4 focus:ring-primary-100 focus:border-primary-500 transition-all outline-none text-lg font-medium shadow-sm hover:shadow-md"
-                value={formData.location}
-                onChange={(e) => handleChange('location', e.target.value)}
-                required
-              />
-           </div>
-        </div>
+          <div className="group space-y-2">
+             <label className="text-sm font-bold text-gray-700 uppercase tracking-widest px-1">Location / Area</label>
+             <div className="relative">
+                <MapPin className="absolute left-4 top-4 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="e.g. Block A, Street 5"
+                  className="w-full pl-12 p-4 rounded-xl border border-gray-100 bg-gray-50/50 focus:ring-4 focus:ring-primary-100 focus:border-primary-500 transition-all outline-none text-lg font-medium shadow-sm hover:shadow-md"
+                  value={formData.location}
+                  onChange={(e) => handleChange('location', e.target.value)}
+                  required
+                />
+             </div>
+          </div>
 
-        <div className="group space-y-2">
-           <label className="text-sm font-bold text-gray-700 uppercase tracking-widest px-1">Detailed Description</label>
-           <textarea
-             rows="5"
-             placeholder="Please provide details about the issue..."
-             className="w-full p-4 rounded-xl border border-gray-100 bg-gray-50/50 focus:ring-4 focus:ring-primary-100 focus:border-primary-500 transition-all outline-none text-lg font-medium shadow-sm hover:shadow-md resize-none"
-             value={formData.description}
-             onChange={(e) => handleChange('description', e.target.value)}
-             required
-           ></textarea>
-        </div>
+          <div className="group space-y-2">
+             <label className="text-sm font-bold text-gray-700 uppercase tracking-widest px-1">Detailed Description</label>
+             <textarea
+               rows="5"
+               placeholder="Please provide details about the issue..."
+               className="w-full p-4 rounded-xl border border-gray-100 bg-gray-50/50 focus:ring-4 focus:ring-primary-100 focus:border-primary-500 transition-all outline-none text-lg font-medium shadow-sm hover:shadow-md resize-none"
+               value={formData.description}
+               onChange={(e) => handleChange('description', e.target.value)}
+               required
+             ></textarea>
+          </div>
 
-        {/* Duplicate Status Indicators */}
-        <AnimatePresence mode="wait">
-          {isChecking && (
-            <motion.div
-              key="checking"
-              initial={{ opacity: 0, y: -5 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              className="flex items-center gap-3 text-sm text-gray-400 font-bold px-1"
-            >
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Checking for existing reports in this area...
-            </motion.div>
-          )}
+          {/* Duplicate Status Indicators */}
+          <AnimatePresence mode="wait">
+            {isChecking && (
+              <motion.div
+                key="checking"
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="flex items-center gap-3 text-sm text-gray-400 font-bold px-1"
+              >
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Checking for existing reports in this area...
+              </motion.div>
+            )}
 
-          {isBlocked && duplicateInfo && (
-            <motion.div
-              key="blocked"
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0 }}
-              className="p-5 bg-amber-50 border border-amber-200 rounded-2xl space-y-3 shadow-inner"
-            >
-              <div className="flex items-start gap-3">
-                <ShieldAlert className="w-6 h-6 text-amber-500 mt-0.5 shrink-0 animate-pulse" />
-                <div>
-                  <p className="text-amber-800 font-bold text-sm">Complaint Already Exists in This Area</p>
-                  <p className="text-amber-700 text-xs mt-1 leading-relaxed">{duplicateInfo.message}</p>
+            {isBlocked && duplicateInfo && (
+              <motion.div
+                key="blocked"
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0 }}
+                className="p-5 bg-amber-50 border border-amber-200 rounded-2xl space-y-3 shadow-inner"
+              >
+                <div className="flex items-start gap-3">
+                  <ShieldAlert className="w-6 h-6 text-amber-500 mt-0.5 shrink-0 animate-pulse" />
+                  <div>
+                    <p className="text-amber-800 font-bold text-sm">Complaint Already Exists in This Area</p>
+                    <p className="text-amber-700 text-xs mt-1 leading-relaxed">{duplicateInfo.message}</p>
+                  </div>
                 </div>
+                {duplicateInfo.existing_complaint && (
+                  <div className="flex flex-wrap gap-2 pt-2 border-t border-amber-100">
+                    <span className="px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-bold uppercase tracking-wider">
+                      Category: {duplicateInfo.existing_complaint.category || 'Unknown'}
+                    </span>
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
+                      duplicateInfo.existing_complaint.status === 'In Progress'
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'bg-orange-100 text-orange-700'
+                    }`}>
+                      Status: {duplicateInfo.existing_complaint.status}
+                    </span>
+                    <span className="px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-bold">
+                      Match: {(duplicateInfo.existing_complaint.similarity_score * 100).toFixed(0)}%
+                    </span>
+                  </div>
+                )}
+              </motion.div>
+            )}
+
+            {duplicateStatus === 'allowed' && formData.subject && (
+              <motion.div
+                key="allowed"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="flex items-center gap-2 text-emerald-600 text-sm font-bold px-1"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                No existing complaint found in this area. Good to submit!
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <button
+            type="submit"
+            className={`w-full py-5 rounded-2xl flex items-center justify-center gap-3 text-xl font-bold transition-all transform active:scale-[0.98] ${
+              isSubmitting || isBlocked
+                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                : isChecking
+                ? 'bg-primary-400 text-white cursor-wait'
+                : 'bg-primary-600 text-white hover:bg-primary-700 shadow-xl shadow-primary-200 hover:-translate-y-1'
+            }`}
+            disabled={isSubmitting || isBlocked}
+          >
+            {isSubmitting ? <Loader2 className="w-6 h-6 animate-spin" /> :
+             isBlocked ? <ShieldAlert className="w-6 h-6" /> : 
+             <Send className="w-6 h-6" />}
+            {isSubmitting ? 'Analyzing & Submitting...' : 
+             isBlocked ? 'Submission Blocked — Duplicate Detected' : 
+             'Submit Report'}
+          </button>
+        </form>
+      ) : (
+        <form onSubmit={handleCsvSubmit} className="space-y-6 relative z-10">
+          <div className="border-2 border-dashed border-gray-300 rounded-2xl p-8 bg-gray-50/50 text-center hover:bg-gray-100/50 hover:border-primary-400 transition-all cursor-pointer relative group">
+            <input 
+              type="file" 
+              accept=".csv" 
+              onChange={handleFileChange} 
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            />
+            <div className="flex flex-col items-center gap-3">
+              <UploadCloud className={`w-12 h-12 ${csvFile ? 'text-primary-500' : 'text-gray-400'} group-hover:text-primary-500 transition-colors`} />
+              <div className="space-y-1">
+                <p className="font-bold text-gray-700 text-lg">
+                  {csvFile ? csvFile.name : 'Click or drag a CSV file to upload'}
+                </p>
+                <p className="text-gray-500 text-sm">
+                  Must contain a <span className="font-mono bg-gray-200 px-1 rounded">complaint_text</span> column
+                </p>
               </div>
-              {duplicateInfo.existing_complaint && (
-                <div className="flex flex-wrap gap-2 pt-2 border-t border-amber-100">
-                  <span className="px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-bold uppercase tracking-wider">
-                    Category: {duplicateInfo.existing_complaint.category || 'Unknown'}
-                  </span>
-                  <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
-                    duplicateInfo.existing_complaint.status === 'In Progress'
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'bg-orange-100 text-orange-700'
-                  }`}>
-                    Status: {duplicateInfo.existing_complaint.status}
-                  </span>
-                  <span className="px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-bold">
-                    Match: {(duplicateInfo.existing_complaint.similarity_score * 100).toFixed(0)}%
-                  </span>
-                </div>
-              )}
-            </motion.div>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            className={`w-full py-5 rounded-2xl flex items-center justify-center gap-3 text-xl font-bold transition-all transform active:scale-[0.98] ${
+              isSubmitting || !csvFile
+                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                : 'bg-primary-600 text-white hover:bg-primary-700 shadow-xl shadow-primary-200 hover:-translate-y-1'
+            }`}
+            disabled={isSubmitting || !csvFile}
+          >
+            {isSubmitting ? <Loader2 className="w-6 h-6 animate-spin" /> : <Send className="w-6 h-6" />}
+            {isSubmitting ? 'Processing File...' : 'Upload & Process CSV'}
+          </button>
+          
+          {csvPreview && (
+            <div className="mt-4 overflow-x-auto rounded-xl border border-gray-200 shadow-sm">
+              <table className="w-full text-sm text-left text-gray-500">
+                <thead className="text-xs text-gray-700 uppercase bg-gray-50">
+                  <tr>
+                    <th scope="col" className="px-4 py-3">Text preview</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {csvPreview.map((row, idx) => (
+                    <tr key={idx} className="bg-white border-b">
+                      <td className="px-4 py-3 font-medium text-gray-900 break-all">{row.complaint_text}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
+        </form>
+      )}
 
-          {duplicateStatus === 'allowed' && formData.subject && (
-            <motion.div
-              key="allowed"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="flex items-center gap-2 text-emerald-600 text-sm font-bold px-1"
-            >
-              <CheckCircle2 className="w-4 h-4" />
-              No existing complaint found in this area. Good to submit!
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <button
-          type="submit"
-          className={`w-full py-5 rounded-2xl flex items-center justify-center gap-3 text-xl font-bold transition-all transform active:scale-[0.98] ${
-            isSubmitting || isBlocked
-              ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-              : isChecking
-              ? 'bg-primary-400 text-white cursor-wait'
-              : 'bg-primary-600 text-white hover:bg-primary-700 shadow-xl shadow-primary-200 hover:-translate-y-1'
-          }`}
-          disabled={isSubmitting || isBlocked}
-        >
-          {isSubmitting ? <Loader2 className="w-6 h-6 animate-spin" /> :
-           isBlocked ? <ShieldAlert className="w-6 h-6" /> : 
-           <Send className="w-6 h-6" />}
-          {isSubmitting ? 'Analyzing & Submitting...' : 
-           isBlocked ? 'Submission Blocked — Duplicate Detected' : 
-           'Submit Report'}
-        </button>
-      </form>
-
-      {/* Prediction Result */}
+      {/* Prediction Result for Manual Entry */}
       <AnimatePresence>
-        {prediction && (
+        {activeTab === 'manual' && prediction && (
           <motion.div
             initial={{ opacity: 0, y: 20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -252,8 +384,16 @@ export default function ComplaintForm({ onSuccess }) {
                     <div className="px-4 py-2 bg-white rounded-lg border border-emerald-200 font-bold flex items-center gap-2 shadow-sm">
                       <span className="text-emerald-500 font-extrabold uppercase text-xs tracking-tighter">Category:</span> {prediction.category}
                     </div>
-                    <div className="px-4 py-2 bg-white rounded-lg border border-emerald-200 font-bold flex items-center gap-2 shadow-sm">
-                      <span className="text-emerald-500 font-extrabold uppercase text-xs tracking-tighter">Priority:</span> {prediction.priority}
+                    <div className={`px-4 py-2 rounded-lg border font-bold flex items-center gap-2 shadow-sm transition-colors ${
+                      prediction.priority === 'High' ? 'bg-red-50 border-red-200 text-red-600' :
+                      prediction.priority === 'Medium' ? 'bg-amber-50 border-amber-200 text-amber-600' :
+                      'bg-emerald-50 border-emerald-200 text-emerald-600'
+                    }`}>
+                      <span className={`font-extrabold uppercase text-xs tracking-tighter ${
+                        prediction.priority === 'High' ? 'text-red-500' :
+                        prediction.priority === 'Medium' ? 'text-amber-500' :
+                        'text-emerald-500'
+                      }`}>Priority:</span> {prediction.priority}
                     </div>
                     <div className="px-4 py-2 bg-white rounded-lg border border-emerald-200 font-bold flex items-center gap-2 shadow-sm">
                       <span className="text-emerald-500 font-extrabold uppercase text-xs tracking-tighter">Status:</span> {prediction.status}
@@ -268,6 +408,37 @@ export default function ComplaintForm({ onSuccess }) {
         )}
       </AnimatePresence>
 
+      {/* CSV Results State */}
+      <AnimatePresence>
+        {activeTab === 'csv' && csvResults && (
+           <motion.div
+           initial={{ opacity: 0, y: 20 }}
+           animate={{ opacity: 1, y: 0 }}
+           className="mt-8 space-y-4"
+         >
+           <h3 className="font-bold text-gray-800 text-lg flex items-center gap-2">
+             <CheckCircle2 className="text-emerald-500 w-5 h-5" /> 
+             Processed {csvResults.length} Complaints
+           </h3>
+           <div className="max-h-64 overflow-y-auto rounded-xl border border-gray-200 shadow-inner p-4 bg-gray-50 space-y-3">
+             {csvResults.map((res, idx) => (
+               <div key={idx} className="p-3 bg-white border border-gray-100 rounded-lg shadow-sm flex flex-col gap-2">
+                 <p className="text-sm font-medium text-gray-800 break-words line-clamp-2">"{res.complaint_text}"</p>
+                 <div className="flex flex-wrap gap-2 text-xs font-bold uppercase">
+                   <span className="text-blue-600 bg-blue-50 px-2 py-1 rounded-md">{res.predicted_category || res.category}</span>
+                   <span className={`px-2 py-1 rounded-md ${
+                     res.priority_level === 'High' ? 'bg-red-50 text-red-600' :
+                     res.priority_level === 'Medium' ? 'bg-orange-50 text-orange-600' :
+                     'bg-emerald-50 text-emerald-600'
+                   }`}>{res.priority_level || res.priority}</span>
+                 </div>
+               </div>
+             ))}
+           </div>
+         </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Error State */}
       {error && (
         <div className="mt-4 p-4 rounded-xl bg-red-50 border border-red-100 text-red-600 font-medium flex items-center gap-3">
@@ -277,3 +448,4 @@ export default function ComplaintForm({ onSuccess }) {
     </div>
   );
 }
+
