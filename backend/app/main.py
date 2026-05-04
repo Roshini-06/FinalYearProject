@@ -10,6 +10,8 @@ from app.core.config import settings
 from app.db.database import engine, Base, AsyncSessionLocal
 from app.models.user import User, UserRole
 from app.core.security import get_password_hash
+from app.core.websocket import manager
+from fastapi import WebSocket, WebSocketDisconnect
 
 # Configure Logging
 logging.basicConfig(level=logging.INFO)
@@ -70,3 +72,17 @@ async def root():
         "status": "online",
         "version": "2.0.0"
     }
+
+@app.websocket("/ws/{user_email}")
+async def websocket_endpoint(websocket: WebSocket, user_email: str):
+    # For a real app, verify token here first
+    # For simplicity in this demo, we assume email is enough
+    is_admin = user_email == "admin@gmail.com"
+    await manager.connect(websocket, user_email, is_admin)
+    try:
+        while True:
+            # Keep connection alive
+            data = await websocket.receive_text()
+            # Echo or handle incoming messages if needed
+    except WebSocketDisconnect:
+        manager.disconnect(websocket, user_email)

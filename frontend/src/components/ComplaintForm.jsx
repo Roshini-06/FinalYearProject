@@ -95,7 +95,7 @@ export default function ComplaintForm({ onSuccess }) {
   const isChecking = duplicateStatus === 'checking';
 
   return (
-    <div className="max-w-2xl mx-auto p-8 bg-white/70 backdrop-blur-xl border border-white/50 rounded-3xl shadow-2xl space-y-8 relative overflow-hidden group">
+    <div className="max-w-xl mx-auto p-8 bg-white/70 backdrop-blur-xl border border-white/50 rounded-3xl shadow-2xl space-y-8 relative overflow-hidden group">
       {/* Background Decor */}
       <div className="absolute top-0 right-0 -mr-16 -mt-16 w-32 h-32 bg-primary-300/20 blur-3xl group-hover:bg-primary-400/30 transition-all duration-700 rounded-full"></div>
       <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-32 h-32 bg-blue-300/20 blur-3xl group-hover:bg-blue-400/30 transition-all duration-700 rounded-full"></div>

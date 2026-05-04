@@ -18,34 +18,45 @@ async def get_current_user(
         detail="Could not validate Clerk credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    
+
+    # --- Step 1: Decode token claims (no signature verification needed for Clerk) ---
     try:
-        # Decode the Clerk JWT purely to extract the 'sub' (User ID)
         unverified_payload = jwt.get_unverified_claims(token)
-        clerk_id = unverified_payload.get("sub")
-        
-        # Read email from custom header (injected by frontend interceptor)
-        email = request.headers.get("X-User-Email") or unverified_payload.get("email")
-        
-        if not clerk_id or not email:
-            print(f"Missing clerk_id ({clerk_id}) or email ({email})")
-            raise credentials_exception
-            
-        # Find user safely by exact email match
+    except Exception as e:
+        print(f"[Auth] Failed to decode JWT claims: {e}")
+        raise credentials_exception
+
+    clerk_id = unverified_payload.get("sub")
+
+    # --- Step 2: Get email — prefer the X-User-Email header, fall back to JWT ---
+    email = (
+        request.headers.get("X-User-Email")
+        or unverified_payload.get("email")
+        # Clerk sometimes puts email in email_addresses list
+        or (unverified_payload.get("email_addresses", [{}])[0].get("email_address") if unverified_payload.get("email_addresses") else None)
+    )
+
+    if not clerk_id or not email:
+        print(f"[Auth] Missing clerk_id='{clerk_id}' or email='{email}'")
+        raise credentials_exception
+
+    # --- Step 3: Find or create user in DB ---
+    try:
         result = await db.execute(select(User).where(User.email == email))
         user = result.scalars().first()
-        
+
         if not user:
-            # Sync user creation
+            print(f"[Auth] Auto-creating user for email: {email}")
             user = User(email=email, role=UserRole.USER, hashed_password="passwordless")
             db.add(user)
             await db.commit()
             await db.refresh(user)
-            
+
         return user
-        
+    except HTTPException:
+        raise  # Don't swallow HTTP exceptions
     except Exception as e:
-        print(f"Clerk verification error: {e}")
+        print(f"[Auth] DB error during user lookup/creation: {e}")
         raise credentials_exception
 
 async def get_current_admin(

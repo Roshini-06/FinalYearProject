@@ -34,6 +34,7 @@ class ComplaintStatusUpdate(BaseModel):
 class ComplaintResponse(ComplaintBase):
     id: int
     user_id: int
+    user_email: Optional[str] = None
     category: Optional[str]
     priority: Optional[str]
     status: str

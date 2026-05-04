@@ -3,11 +3,7 @@ import ReactDOM from 'react-dom/client'
 import App from './App'
 import './index.css'
 
-import axios from 'axios'
 import { ClerkProvider } from '@clerk/clerk-react'
-
-// Ensure all requests globally point strictly to the backend avoiding Vite proxy/port mismatches
-axios.defaults.baseURL = 'http://localhost:8000'
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 

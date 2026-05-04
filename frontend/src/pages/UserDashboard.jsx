@@ -4,7 +4,9 @@ import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import ComplaintForm from '../components/ComplaintForm';
 import { FileText, Sparkles, Clock, MapPin, CheckCircle2, AlertTriangle, Info } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useWebSocket } from '../hooks/useWebSocket';
+import { toast, Toaster } from 'react-hot-toast';
 
 export default function UserDashboard() {
   const [complaint, setComplaint] = useState(null);
@@ -32,14 +34,27 @@ export default function UserDashboard() {
     }
   };
 
+  const { lastMessage } = useWebSocket(user?.email);
+
   useEffect(() => {
     fetchComplaint();
   }, []);
+
+  useEffect(() => {
+    if (lastMessage?.type === 'STATUS_UPDATE') {
+      toast.success(`Complaint #${lastMessage.complaint_id} status changed to ${lastMessage.new_status}!`, {
+        duration: 5000,
+        icon: '🔔'
+      });
+      fetchComplaint();
+    }
+  }, [lastMessage]);
 
   if (loading) return <div className="min-h-screen flex items-center justify-center">Loading your reports...</div>;
 
   return (
     <div className="min-h-screen pt-32 pb-20 px-8 bg-mesh">
+      <Toaster position="top-right" />
       <div className="max-w-7xl mx-auto space-y-12">
         <header className="space-y-4">
            <h1 className="text-5xl font-extrabold text-gray-900 tracking-tight">

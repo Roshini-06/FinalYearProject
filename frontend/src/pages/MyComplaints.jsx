@@ -1,18 +1,34 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import { useAuth as useClerkAuth } from '@clerk/clerk-react';
 import { FileText, Clock, MapPin, CheckCircle2, AlertTriangle, ChevronRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function MyComplaints() {
   const [complaints, setComplaints] = useState([]);
   const [loading, setLoading] = useState(true);
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const { getToken } = useClerkAuth();
 
   useEffect(() => {
+    // Wait until Clerk auth is fully loaded and user is signed in
+    if (authLoading) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
     const fetchComplaints = async () => {
       try {
-        const response = await axios.get('/api/v1/complaints/my');
+        // Explicitly fetch the token to avoid race condition with the Axios interceptor
+        const token = await getToken();
+        const response = await axios.get('/api/v1/complaints/my', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'X-User-Email': user.email,
+          }
+        });
         setComplaints(response.data);
       } catch (err) {
         console.error("Error fetching complaints:", err);
@@ -21,7 +37,7 @@ export default function MyComplaints() {
       }
     };
     fetchComplaints();
-  }, []);
+  }, [authLoading, user]);
 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center">

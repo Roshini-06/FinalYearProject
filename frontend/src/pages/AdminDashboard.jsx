@@ -6,7 +6,8 @@ import {
   TrendingUp, LogOut, CheckCircle2, Clock, MapPin, Search 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { toast } from 'react-hot-toast';
+import { toast, Toaster } from 'react-hot-toast';
+import { useWebSocket } from '../hooks/useWebSocket';
 
 export default function AdminDashboard() {
   const [complaints, setComplaints] = useState([]);
@@ -36,6 +37,18 @@ export default function AdminDashboard() {
     }
   };
 
+  const { lastMessage } = useWebSocket('admin@gmail.com');
+
+  useEffect(() => {
+    if (lastMessage?.type === 'NEW_COMPLAINT_PRIORITY') {
+      toast.error(`Urgent: New High Priority Complaint #${lastMessage.complaint_id}!`, {
+        duration: 8000,
+        icon: '🚨'
+      });
+      fetchComplaints();
+    }
+  }, [lastMessage]);
+
   useEffect(() => {
     if (!token) {
         navigate('/admin/login');
@@ -52,19 +65,28 @@ export default function AdminDashboard() {
   };
 
   const handleUpdateStatus = async (id, currentStatus) => {
+    const statuses = ['Pending', 'In Progress', 'Resolved'];
+    const nextStatus = statuses[(statuses.indexOf(currentStatus) + 1) % statuses.length];
+
+    // --- Optimistic UI update: change status instantly in local state ---
+    setComplaints(prev =>
+      prev.map(c => c.id === id ? { ...c, status: nextStatus } : c)
+    );
+    toast.success(`Status updated to ${nextStatus}`);
+
     try {
-      const statuses = ['Pending', 'In Progress', 'Resolved'];
-      const nextStatus = statuses[(statuses.indexOf(currentStatus) + 1) % statuses.length];
-      
-      await axios.patch(`/api/v1/complaints/${id}/status`, 
+      await axios.patch(
+        `/api/v1/complaints/${id}/status`,
         { status: nextStatus },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      
-      toast.success(`Status updated to ${nextStatus}`);
-      fetchComplaints();
+      // No need to re-fetch — state is already correct
     } catch (err) {
-      toast.error("Failed to update status");
+      // Rollback: revert to the original status on failure
+      setComplaints(prev =>
+        prev.map(c => c.id === id ? { ...c, status: currentStatus } : c)
+      );
+      toast.error("Failed to update status. Reverted.");
     }
   };
 
@@ -77,6 +99,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen pt-28 pb-20 px-4 md:px-8 bg-slate-50">
+      <Toaster position="top-right" />
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Top Navbar Component */}
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -136,7 +159,10 @@ export default function AdminDashboard() {
                     <option value="">All Categories</option>
                     <option value="Water">Water</option>
                     <option value="Electricity">Electricity</option>
-                    <option value="General">General</option>
+                    <option value="Roads">Roads</option>
+                     <option value="Sanitation">Sanitation</option>
+                     <option value="Animals">Animals</option>
+                     <option value="General">General</option>
                  </select>
                  <select 
                    className="p-3 bg-gray-50 border-none rounded-xl outline-none ring-1 ring-gray-100 text-gray-600 focus:ring-2 focus:ring-primary-500"

@@ -1,0 +1,29 @@
+# Node / Frontend
+node_modules/
+dist/
+build/
+npm-debug.log*
+yarn-error.log*
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.env
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Datasets (VERY IMPORTANT)
+dataset/
+data/
+*.csv
+
+# ML models & artifacts
+*.pkl
+*.joblib
+*.h5
+
+# Notebooks checkpoints
+.ipynb_checkpoints/
